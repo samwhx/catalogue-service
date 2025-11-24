@@ -15,10 +15,9 @@ gem "puma", ">= 5.0"
 # Windows does not include zoneinfo files, so bundle the tzinfo-data gem
 gem "tzinfo-data", platforms: %i[ windows jruby ]
 
-# Use the database-backed adapters for Rails.cache, Active Job, and Action Cable
-gem "solid_cache"
-gem "solid_queue"
-gem "solid_cable"
+# Use Redis for caching, queuing, and Action Cable
+gem "redis", "~> 5.0"
+gem "sidekiq", "~> 7.0"
 
 # Reduces boot times through caching; required in config/boot.rb
 gem "bootsnap", require: false
@@ -53,3 +52,5 @@ group :development, :test do
   gem "shoulda-matchers", "~> 6.0"
   gem "factory_bot_rails", "~> 6.4"
 end
+
+gem "dockerfile-rails", ">= 1.7", group: :development

@@ -6,9 +6,31 @@ if [ -z "${LD_PRELOAD+x}" ]; then
     export LD_PRELOAD
 fi
 
-# If running the rails server then create or migrate existing database
+# If running the rails server then migrate all databases
+# Using db:migrate instead of db:prepare to avoid permission issues on Fly.io Postgres
 if [ "${@: -2:1}" == "./bin/rails" ] && [ "${@: -1:1}" == "server" ]; then
-  ./bin/rails db:prepare
+  # Wait a moment for DATABASE_URL to be available (Fly.io secrets might take a moment)
+  if [ -z "${DATABASE_URL}" ]; then
+    echo "WARNING: DATABASE_URL is not set. Waiting up to 5 seconds..."
+    for i in {1..10}; do
+      sleep 0.5
+      if [ -n "${DATABASE_URL}" ]; then
+        echo "DATABASE_URL is now available."
+        break
+      fi
+    done
+  fi
+
+  if [ -n "${DATABASE_URL}" ]; then
+    echo "Running database migrations and seeding..."
+    # Migrate primary database
+    RAILS_ENV=production ./bin/rails db:migrate || echo "Database migration failed, continuing anyway..."
+    # Seed the database
+    RAILS_ENV=production ./bin/rails db:seed || echo "Database seeding failed, continuing anyway..."
+  else
+    echo "WARNING: DATABASE_URL is still not set. Skipping database migration and seeding."
+    echo "The server will start but may not be able to connect to the database."
+  fi
 fi
 
 exec "${@}"

@@ -19,7 +19,6 @@ default: &default
   # https://guides.rubyonrails.org/configuring.html#database-pooling
   pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
 
-
 development:
   <<: *default
   database: catalogue_service_development
@@ -79,20 +78,6 @@ test:
 # for a full overview on how database connection configuration can be specified.
 #
 production:
-  primary: &primary_production
-    <<: *default
-    database: catalogue_service_production
-    username: catalogue_service
-    password: <%= ENV["CATALOGUE_SERVICE_DATABASE_PASSWORD"] %>
-  cache:
-    <<: *primary_production
-    database: catalogue_service_production_cache
-    migrations_paths: db/cache_migrate
-  queue:
-    <<: *primary_production
-    database: catalogue_service_production_queue
-    migrations_paths: db/queue_migrate
-  cable:
-    <<: *primary_production
-    database: catalogue_service_production_cable
-    migrations_paths: db/cable_migrate
+  <<: *default
+  # Explicitly use DATABASE_URL for Fly.io Postgres connection
+  url: <%= ENV.fetch("DATABASE_URL") { "" } %>

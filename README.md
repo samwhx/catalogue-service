@@ -19,9 +19,13 @@ rails server
 
 Returns list of active catalogs (metadata only).
 
+**Live Endpoint:** https://catalogue-service.fly.dev/catalogs
+
 ### GET /catalogs/:identifier
 
 Returns single catalog with full nested hierarchy (sections → items → options).
+
+**Live Endpoint:** https://catalogue-service.fly.dev/catalogs/atlas-kitchen-2024
 
 **Example Response:**
 

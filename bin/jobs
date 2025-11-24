@@ -1,6 +1,4 @@
 #!/usr/bin/env ruby
 
-require_relative "../config/environment"
-require "solid_queue/cli"
-
-SolidQueue::Cli.start(ARGV)
+# Run Sidekiq for background job processing
+exec "bundle", "exec", "sidekiq"
