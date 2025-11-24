@@ -59,7 +59,7 @@ Returns single catalog with full nested hierarchy (sections → items → option
 
 - Hierarchical structure: Catalog → Section (self-referential) → Item → Option
 - Self-referential sections for flexible nesting
-- Caching with version-based keys for performance
+- Redis caching with automatic cache busting for performance
 - Eager loading to prevent N+1 queries
 - Read-only API (GET endpoints only)
 
@@ -80,14 +80,14 @@ Items are what customers ultimately select and purchase. Sections are organizati
 **1. Self-Referential Sections Only**
 
 - ✅ Simpler, still demonstrates hierarchical concepts
-- ❌ Less flexible if items need sub-items (unlikely for menus)
+- ❌ Simplistic assumption - less flexible if items need sub-items (unlikely for menus, but could be extended later if needed)
 
 **2. Simple Integer Display Order**
 
 - ✅ Simpler, faster, no dependency, sufficient for read-only API
-- ❌ No automatic reordering (not needed for read-only)
+- ❌ No automatic reordering (not needed for read-only). Can easily add a positioning gem (e.g., `acts_as_list` or `ranked-model`) later to automatically handle reordering, gaps, and position management if write operations are added
 
-### Failure modes anticipated
+### Mitigations for predicted failures
 
 **1. Circular References**
 

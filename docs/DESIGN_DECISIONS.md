@@ -6,137 +6,135 @@ A hierarchical catalogue API with 3-4 levels: **Catalog → Section (self-refere
 
 **Key choices:**
 
+**Platform & Infrastructure:**
+
+- Rails API-only mode (no views) since use case is API server only
+- PostgreSQL for database efficiency and future-proofing
+- Fly.io hosting with Singapore region for improved performance
+
+**Data Model:**
+
 - Self-referential sections only (not items)
-- Simple integer `display_order` (no positioning gem)
+- Identifier-based URLs (not ID-based) for better security and to decrease likelihood of predicting URLs
 - `active` boolean flag (not soft deletes)
 - `price` as DECIMAL + `currency` string
+- Simple integer `display_order` (no positioning gem)
+
+**API Design:**
+
 - Read-only API (GET endpoints only)
-- Caching with version-based keys
-- Basic error handling (production patterns documented)
+
+**Implementation:**
+
+- Thin controllers with service layer architecture
+- Common methods offloaded to ApplicationController for reusability
+- Complex catalog building logic in dedicated CatalogTreeBuilder service
+- JSON API Serializer for performance and easier-to-read syntax
+- Extensive query optimizations (eager loading, strategic indexing)
+
+**Performance:**
+
+- Automatic caching and cache busting with Redis
+
+**Operational:**
+
+- Basic error handling (production patterns documented, Sentry/Airbrake integration planned)
 
 ---
 
 ## Quick Reference: All Decisions
 
-| Decision           | What We Chose           | What We Considered         | Why                                                   |
-| ------------------ | ----------------------- | -------------------------- | ----------------------------------------------------- |
-| Hierarchy          | 3-4 levels              | Full Atlas complexity      | Simpler, meets requirements                           |
-| Self-Referential   | Sections only           | Sections + Items           | Demonstrates concept without over-complication        |
-| Depth Limit        | Environment variable    | Hard-coded / DB constraint | Flexible, configurable per environment                |
-| Active/Delete      | Boolean flag            | Soft delete timestamp      | Simpler, sufficient for read-only API                 |
-| Price              | DECIMAL                 | Integer cents / Float      | Exact precision, supports any decimal places          |
-| Identifiers        | ID + identifier         | ID only                    | Better URLs, more flexible                            |
-| Options            | Simple one-level        | Modifier groups            | Sufficient, extensible                                |
-| Caching            | Implemented             | No cache / Always cache    | Demonstrates capability, read-heavy APIs benefit      |
-| Loading            | Single call             | Chunked loading            | Menus small enough, better UX                         |
-| Create/Update      | Skip                    | Full CRUD                  | Assignment focuses on retrieval                       |
-| Delete             | Skip, use active flag   | Hard/soft delete           | Active flag handles via filtering                     |
-| Display Order      | Simple integer          | Positioning gem            | Read-only API doesn't need reordering                 |
-| Authentication     | None (open API)         | JWT / API Keys / OAuth     | Assignment constraint, documented production approach |
-| Resilience         | Basic error handling    | Circuit breakers / Retries | Appropriate scope, documented production patterns     |
-| Offline Mode       | Frontend responsibility | Backend cache headers      | Standard pattern, backend supports via HTTP           |
-| Forward Compatible | Yes                     | Breaking changes           | Standard Rails patterns, complete schema              |
+| Decision           | What We Chose              | What We Considered         | Why                                                                 |
+| ------------------ | -------------------------- | -------------------------- | ------------------------------------------------------------------- |
+| Rails Mode         | API-only                   | Full Rails with views      | Use case is API server only, no views needed                        |
+| Database           | PostgreSQL                 | SQLite / MySQL             | Better efficiency, future-proofing, advanced features               |
+| Hosting            | Fly.io (SG region)         | Heroku / AWS               | SG server improves loading speed for SG customers                   |
+| Hierarchy          | 3-4 levels                 | Full Atlas complexity      | Simpler, meets requirements                                         |
+| Self-Referential   | Sections only              | Sections + Items           | Demonstrates concept without over-complication                      |
+| Identifiers        | Identifier only            | ID only                    | Better URLs, more flexible, decreases likelihood of predicting URLs |
+| Active/Delete      | Boolean flag               | Soft delete timestamp      | Simpler, sufficient for read-only API                               |
+| Price              | DECIMAL                    | Integer cents / Float      | Exact precision, supports any decimal places                        |
+| Options            | Simple one-level           | Modifier groups            | Sufficient, extensible                                              |
+| Display Order      | Simple integer             | Positioning gem            | Read-only API doesn't need reordering                               |
+| Depth Limit        | Environment variable       | Hard-coded / DB constraint | Flexible, configurable per environment                              |
+| Loading            | Single call                | Chunked loading            | Menus small enough, better UX                                       |
+| Create/Update      | Skip                       | Full CRUD                  | Assignment focuses on retrieval                                     |
+| Delete             | Skip, use active flag      | Hard/soft delete           | Active flag handles via filtering                                   |
+| Authentication     | None (open API)            | JWT / API Keys / OAuth     | Assignment constraint, documented production approach               |
+| Controller Design  | Thin controllers           | Fat controllers            | Better separation of concerns, testability                          |
+| Service Layer      | CatalogTreeBuilder service | Inline logic               | Complex logic isolated, reusable, testable                          |
+| Serialization      | JSON API Serializer        | Jbuilder / AMS             | Faster performance, easier to read syntax                           |
+| Query Optimization | Extensive optimizations    | Basic queries              | Prevents N+1 queries, dramatically improves performance             |
+| Caching            | Redis with auto-busting    | No cache / Always cache    | Read-heavy APIs benefit, automatic invalidation                     |
+| Cache Store        | Redis                      | Memory store / SolidCache  | Production-ready, future compatible with Sidekiq                    |
+| Resilience         | Basic error handling       | Circuit breakers / Retries | Appropriate scope, documented production patterns                   |
+| Forward Compatible | Yes                        | Breaking changes           | Standard Rails patterns, complete schema                            |
 
 ---
 
 ## Major Design Decisions
 
-### Self-Referential Relationships
+### Platform & Infrastructure
 
-**Chose:** Self-referential for **sections only**
+**Rails API-only mode:** Lighter footprint, faster boot times, clearer intent for JSON API. Trade-off: Cannot serve HTML views (aligns with use case).
 
-**Why:** Simpler, still demonstrates hierarchical concepts. Items are typically flat lists within sections.
+**PostgreSQL:** Better efficiency, future-proofing with advanced features (JSONB, full-text search), industry standard. Trade-off: More complex than SQLite, but essential for production.
 
-**Trade-off:** Less flexible if items need sub-items later (unlikely for menu/catalogue use cases).
+**Fly.io (Singapore region):** Improved loading speed for SG customers, managed PostgreSQL/Redis, cost-effective scaling. Trade-off: Less established than Heroku, but better regional performance.
 
-### Depth Limiting
+### Data Model
 
-**Chose:** `MAX_SECTION_DEPTH` environment variable (default: 5)
+**Self-referential sections only:** Simpler, demonstrates hierarchy. Items are typically flat lists. Trade-off: Less flexible if items need sub-items (unlikely for menus).
 
-**Why:** Configurable per environment, runtime adjustment, clear safety mechanism.
+**Identifier-only URLs:** Better URLs, more secure (harder to predict). Trade-off: Requires unique identifier management.
 
-**Trade-off:** Requires environment configuration, but provides flexibility.
+**Active boolean flag:** Simpler queries, better performance for read-only API. Trade-off: No audit trail (can add `archived_at` later).
 
-### Active Flag vs Soft Deletes
+**DECIMAL price + currency:** Exact precision, supports any decimal places, no floating-point errors. Trade-off: Slightly larger storage than integer.
 
-**Chose:** `active` boolean flag
+**Environment-based depth limit:** Configurable per environment, runtime adjustment. Trade-off: Requires environment configuration.
 
-**Why:** Simpler queries, better performance, sufficient for read-only API.
+### Implementation
 
-**Trade-off:** No audit trail (can add `archived_at` later if needed).
+**Thin controllers + service layer:** Controllers focus on HTTP, business logic in services (`CatalogTreeBuilder`), common methods in ApplicationController. Better testability and maintainability.
 
-### Price Representation
+**JSON API Serializer:** Faster than Jbuilder/AMS, cleaner syntax, industry-standard format. Trade-off: Slightly more setup.
 
-**Chose:** `price` as DECIMAL + `currency` string
+**Query optimizations:** Eager loading, strategic indexing, PostgreSQL features. Result: Reduced from 161+ queries to 4-5 (40-310x improvement).
 
-**Why:** Exact precision, supports any decimal places (USD=2, BHD=3, JPY=0), no floating-point errors.
+**Redis caching with auto-busting:** Version-based keys (`catalog:{id}:{updated_at}`) provide automatic invalidation. Production-ready, future-compatible with Sidekiq. Key insight: Eliminates manual cache management.
 
-**Considered:** Integer cents (requires knowing smallest unit per currency), Float (precision errors).
+### Operational
 
-**Trade-off:** Slightly larger storage than integer, but flexibility is worth it.
+**Forward compatible:** Yes - standard Rails associations, complete schema, write-compatible JSON. Can add create/update, authentication, soft deletes without breaking changes.
 
-### Caching Strategy
-
-**Chose:** Implement caching with version-based keys (`catalog:{id}:{updated_at}`)
-
-**Why:** Read-heavy APIs (1000:1 read-to-write ratio) benefit significantly. Version-based keys provide automatic invalidation.
-
-**Implementation:** Rails memory store (can upgrade to Redis). TTL fallback: 24 hours.
-
-**Key insight:** When any related entity updates, timestamp changes and cache key becomes invalid automatically.
-
-### Loading Strategy
-
-**Chose:** Single call (complete structure)
-
-**Why:** Typical menus are 20-200 items (5-20 KB compressed, <100ms download). Better UX, simpler API, enables offline caching.
-
-**Trade-off:** Chunked loading would give smaller payloads but breaks hierarchical context.
-
-### Forward Compatibility
-
-**Answer:** **Yes, 100% forward-compatible**
-
-**Why:** Standard Rails associations, complete schema, write-compatible JSON structure. Can add create/update, authentication, soft deletes, positioning gem without breaking changes.
+**Error logging:** Planned integration with Sentry/Airbrake for production monitoring (real-time alerts, performance tracking).
 
 ---
 
 ## Failure Modes & Mitigations
 
-### Circular References
+**Circular References:** Validation using Set to track ancestor IDs (detects cycles), depth limit prevents excessive nesting.
 
-**Problem:** Self-referential sections could create cycles (A → B → C → A)
+**Deep Nesting Performance:** Environment depth limit, eager loading prevents N+1 queries, caching, gzip compression.
 
-**Mitigation:** Validation using Set to track all ancestor IDs (detects cycles at any depth), depth limit prevents excessive nesting.
+**Missing Data:** 404 response, filter inactive by default, clear error messages.
 
-### Deep Nesting Performance
-
-**Problem:** Very deep hierarchies cause slow queries and large JSON responses
-
-**Mitigation:** Environment variable depth limit, eager loading prevents N+1 queries, caching provides speedup, gzip compression.
-
-### Missing Data
-
-**Problem:** Requesting non-existent catalog or inactive items
-
-**Mitigation:** 404 response, filter inactive by default, clear error messages.
-
-### Stack Overflow in Serialization
-
-**Problem:** Recursive serialization could overflow stack
-
-**Mitigation:** Depth tracking, respect `MAX_SECTION_DEPTH`, iterative tree building.
+**Stack Overflow:** Depth tracking, respect `MAX_SECTION_DEPTH`, iterative tree building.
 
 ---
 
 ## Key Insights
 
-1. **Simplicity > Complexity:** Meeting requirements with simpler solutions shows better judgment
-2. **Version-Based Cache Keys:** Automatic invalidation via `catalog:{id}:{updated_at}` is elegant
+1. **Simplicity > Complexity:** Simpler solutions show better judgment
+2. **Version-Based Cache Keys:** Automatic invalidation (`catalog:{id}:{updated_at}`) eliminates manual cache management
 3. **Eager Loading Is Critical:** 40-310x fewer queries (4-5 vs 161+)
 4. **Hash Maps Make Tree Traversal Fast:** O(1) lookups vs O(n) scans
 5. **Forward Compatibility Matters:** Design for future enhancements without breaking changes
-6. **Production Thinking:** Consider caching, monitoring, resilience even in demos
+6. **Thin Controllers, Fat Services:** Offload complexity to services for better maintainability
+7. **Query Optimization Pays Off:** Strategic eager loading dramatically improves performance
+8. **Regional Hosting Matters:** Infrastructure close to users significantly improves response times
+9. **Redis for Future-Proofing:** Enables easy addition of Sidekiq without infrastructure changes
 
 ---
 
