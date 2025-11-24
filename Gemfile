@@ -53,3 +53,5 @@ group :development, :test do
   gem "shoulda-matchers", "~> 6.0"
   gem "factory_bot_rails", "~> 6.4"
 end
+
+gem "dockerfile-rails", ">= 1.7", :group => :development
