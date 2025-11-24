@@ -6,58 +6,137 @@ A hierarchical catalogue API with 3-4 levels: **Catalog → Section (self-refere
 
 **Key choices:**
 
+**Platform & Infrastructure:**
+- Rails API-only mode (no views) since use case is API server only
+- PostgreSQL for database efficiency and future-proofing
+- Fly.io hosting with Singapore region for improved performance
+
+**Data Model:**
 - Self-referential sections only (not items)
-- Simple integer `display_order` (no positioning gem)
+- Identifier-based URLs (not ID-based) for better security and to decrease likelihood of predicting URLs
 - `active` boolean flag (not soft deletes)
 - `price` as DECIMAL + `currency` string
+- Simple integer `display_order` (no positioning gem)
+
+**API Design:**
 - Read-only API (GET endpoints only)
-- Automatic caching and cache busting with Redis
-- Identifier-based URLs (not ID-based) for better security and to decrease likelihood of predicting URLs
+
+**Implementation:**
 - Thin controllers with service layer architecture
-- JSON API Serializer for performance and easier-to-read syntax
-- PostgreSQL for database efficiency and future-proofing
 - Common methods offloaded to ApplicationController for reusability
 - Complex catalog building logic in dedicated CatalogBuilder service
+- JSON API Serializer for performance and easier-to-read syntax
 - Extensive query optimizations (eager loading, strategic indexing)
-- Fly.io hosting with Singapore region for improved performance
-- Rails API-only mode (no views) since use case is API server only
+
+**Performance:**
+- Automatic caching and cache busting with Redis
+
+**Operational:**
 - Basic error handling (production patterns documented, Sentry/Airbrake integration planned)
 
 ---
 
 ## Quick Reference: All Decisions
 
+### Platform & Infrastructure
+| Decision           | What We Chose           | What We Considered         | Why                                                                      |
+| ------------------ | ----------------------- | -------------------------- | ------------------------------------------------------------------------ |
+| Rails Mode         | API-only                | Full Rails with views      | Use case is API server only, no views needed                             |
+| Database           | PostgreSQL              | SQLite / MySQL             | Better efficiency, future-proofing, advanced features                    |
+| Hosting            | Fly.io (SG region)      | Heroku / AWS               | SG server improves loading speed for SG customers                        |
+
+### Data Model
 | Decision           | What We Chose           | What We Considered         | Why                                                                      |
 | ------------------ | ----------------------- | -------------------------- | ------------------------------------------------------------------------ |
 | Hierarchy          | 3-4 levels              | Full Atlas complexity      | Simpler, meets requirements                                              |
 | Self-Referential   | Sections only           | Sections + Items           | Demonstrates concept without over-complication                           |
-| Depth Limit        | Environment variable    | Hard-coded / DB constraint | Flexible, configurable per environment                                   |
+| Identifiers        | Identifier only         | ID only                    | Better URLs, more flexible, decreases likelihood of predicting URLs      |
 | Active/Delete      | Boolean flag            | Soft delete timestamp      | Simpler, sufficient for read-only API                                    |
 | Price              | DECIMAL                 | Integer cents / Float      | Exact precision, supports any decimal places                             |
-| Identifiers        | Identifier only         | ID only                    | Better URLs, more flexible, decreases likelihood of predicting URLs      |
 | Options            | Simple one-level        | Modifier groups            | Sufficient, extensible                                                   |
-| Caching            | Redis with auto-busting | No cache / Always cache    | Demonstrates capability, read-heavy APIs benefit, automatic invalidation |
-| Serialization      | JSON API Serializer     | Jbuilder / AMS             | Faster performance, easier to read syntax                                |
-| Controller Design  | Thin controllers        | Fat controllers            | Better separation of concerns, testability                               |
-| Service Layer      | CatalogBuilder service  | Inline logic               | Complex logic isolated, reusable, testable                               |
-| Database           | PostgreSQL              | SQLite / MySQL             | Better efficiency, future-proofing, advanced features                    |
-| Cache Store        | Redis                   | Memory store / SolidCache  | Production-ready, future compatible with Sidekiq                         |
-| Hosting            | Fly.io (SG region)      | Heroku / AWS               | SG server improves loading speed for SG customers                        |
-| Rails Mode         | API-only                | Full Rails with views      | Use case is API server only, no views needed                             |
+| Display Order      | Simple integer          | Positioning gem            | Read-only API doesn't need reordering                                    |
+| Depth Limit        | Environment variable    | Hard-coded / DB constraint | Flexible, configurable per environment                                   |
+
+### API Design
+| Decision           | What We Chose           | What We Considered         | Why                                                                      |
+| ------------------ | ----------------------- | -------------------------- | ------------------------------------------------------------------------ |
 | Loading            | Single call             | Chunked loading            | Menus small enough, better UX                                            |
 | Create/Update      | Skip                    | Full CRUD                  | Assignment focuses on retrieval                                          |
 | Delete             | Skip, use active flag   | Hard/soft delete           | Active flag handles via filtering                                        |
-| Display Order      | Simple integer          | Positioning gem            | Read-only API doesn't need reordering                                    |
 | Authentication     | None (open API)         | JWT / API Keys / OAuth     | Assignment constraint, documented production approach                    |
-| Resilience         | Basic error handling    | Circuit breakers / Retries | Appropriate scope, documented production patterns                        |
 | Offline Mode       | Frontend responsibility | Backend cache headers      | Standard pattern, backend supports via HTTP                              |
+
+### Implementation & Architecture
+| Decision           | What We Chose           | What We Considered         | Why                                                                      |
+| ------------------ | ----------------------- | -------------------------- | ------------------------------------------------------------------------ |
+| Controller Design  | Thin controllers        | Fat controllers            | Better separation of concerns, testability                               |
+| Service Layer      | CatalogBuilder service  | Inline logic               | Complex logic isolated, reusable, testable                               |
+| Serialization      | JSON API Serializer     | Jbuilder / AMS             | Faster performance, easier to read syntax                                |
+| Query Optimization | Extensive optimizations | Basic queries              | Prevents N+1 queries, dramatically improves performance                 |
+
+### Performance & Caching
+| Decision           | What We Chose           | What We Considered         | Why                                                                      |
+| ------------------ | ----------------------- | -------------------------- | ------------------------------------------------------------------------ |
+| Caching            | Redis with auto-busting | No cache / Always cache    | Demonstrates capability, read-heavy APIs benefit, automatic invalidation |
+| Cache Store        | Redis                   | Memory store / SolidCache  | Production-ready, future compatible with Sidekiq                         |
+
+### Operational
+| Decision           | What We Chose           | What We Considered         | Why                                                                      |
+| ------------------ | ----------------------- | -------------------------- | ------------------------------------------------------------------------ |
+| Resilience         | Basic error handling    | Circuit breakers / Retries | Appropriate scope, documented production patterns                        |
 | Forward Compatible | Yes                     | Breaking changes           | Standard Rails patterns, complete schema                                 |
 
 ---
 
 ## Major Design Decisions
 
-### Self-Referential Relationships
+### Platform & Infrastructure
+
+#### Rails Application Mode
+
+**Chose:** Rails API-only mode (scaffolding)
+
+**Why:**
+
+- Use case is API server only, no views or frontend rendering needed
+- Lighter application footprint (removes ActionView, ActionCable view helpers, etc.)
+- Faster boot times and reduced memory usage
+- Clearer intent: this is a JSON API, not a web application
+- Still includes ActionCable for WebSocket support if needed
+
+**Trade-off:** Cannot serve HTML views, but this aligns perfectly with the API-only use case.
+
+#### Database Choice
+
+**Chose:** PostgreSQL
+
+**Why:**
+
+- Better efficiency and performance
+- Future-proofing with advanced features (JSONB, full-text search, etc.)
+- Rich set of database methods and optimizations
+- Industry standard for production Rails applications
+- Better concurrency handling
+
+**Trade-off:** Slightly more complex than SQLite, but essential for production scalability.
+
+#### Hosting & Infrastructure
+
+**Chose:** Fly.io with Singapore (SIN) region
+
+**Why:**
+
+- Singapore server location improves loading speed for Singapore customers
+- Analyzed different service providers and found Fly.io offers best regional performance
+- Docker-based deployment for consistency
+- Managed PostgreSQL and Redis available
+- Cost-effective scaling
+
+**Trade-off:** Less established than Heroku, but better regional performance and modern infrastructure.
+
+### Data Model
+
+#### Self-Referential Relationships
 
 **Chose:** Self-referential for **sections only**
 
@@ -65,15 +144,15 @@ A hierarchical catalogue API with 3-4 levels: **Catalog → Section (self-refere
 
 **Trade-off:** Less flexible if items need sub-items later (unlikely for menu/catalogue use cases).
 
-### Depth Limiting
+#### Identifiers
 
-**Chose:** `MAX_SECTION_DEPTH` environment variable (default: 5)
+**Chose:** Identifier-only URLs (not ID-based)
 
-**Why:** Configurable per environment, runtime adjustment, clear safety mechanism.
+**Why:** Better URLs, more flexible, decreases likelihood of predicting URLs for security.
 
-**Trade-off:** Requires environment configuration, but provides flexibility.
+**Trade-off:** Requires unique identifier management, but provides better UX and security.
 
-### Active Flag vs Soft Deletes
+#### Active Flag vs Soft Deletes
 
 **Chose:** `active` boolean flag
 
@@ -81,7 +160,7 @@ A hierarchical catalogue API with 3-4 levels: **Catalog → Section (self-refere
 
 **Trade-off:** No audit trail (can add `archived_at` later if needed).
 
-### Price Representation
+#### Price Representation
 
 **Chose:** `price` as DECIMAL + `currency` string
 
@@ -91,17 +170,17 @@ A hierarchical catalogue API with 3-4 levels: **Catalog → Section (self-refere
 
 **Trade-off:** Slightly larger storage than integer, but flexibility is worth it.
 
-### Caching Strategy
+#### Depth Limiting
 
-**Chose:** Redis with automatic cache busting using version-based keys (`catalog:{id}:{updated_at}`)
+**Chose:** `MAX_SECTION_DEPTH` environment variable (default: 5)
 
-**Why:** Read-heavy APIs (1000:1 read-to-write ratio) benefit significantly. Version-based keys provide automatic invalidation. Redis is production-ready and future-compatible with Sidekiq for background jobs.
+**Why:** Configurable per environment, runtime adjustment, clear safety mechanism.
 
-**Implementation:** Redis cache store with automatic cache busting. When any related entity updates, timestamp changes and cache key becomes invalid automatically.
+**Trade-off:** Requires environment configuration, but provides flexibility.
 
-**Key insight:** Automatic cache invalidation via version-based keys eliminates manual cache management overhead.
+### API Design
 
-### Loading Strategy
+#### Loading Strategy
 
 **Chose:** Single call (complete structure)
 
@@ -109,13 +188,9 @@ A hierarchical catalogue API with 3-4 levels: **Catalog → Section (self-refere
 
 **Trade-off:** Chunked loading would give smaller payloads but breaks hierarchical context.
 
-### Forward Compatibility
+### Implementation & Architecture
 
-**Answer:** **Yes, 100% forward-compatible**
-
-**Why:** Standard Rails associations, complete schema, write-compatible JSON structure. Can add create/update, authentication, soft deletes, positioning gem without breaking changes.
-
-### Controller Architecture
+#### Controller Architecture
 
 **Chose:** Thin controllers with logic offloaded to services, modules, and ApplicationController
 
@@ -132,7 +207,15 @@ A hierarchical catalogue API with 3-4 levels: **Catalog → Section (self-refere
 - ApplicationController provides shared functionality
 - Controllers delegate to services and return serialized responses
 
-### Serialization Strategy
+#### Service Layer
+
+**Chose:** CatalogBuilder service for complex catalog building logic
+
+**Why:** Isolates complex business logic, makes it reusable and testable, keeps controllers thin.
+
+**Trade-off:** Additional abstraction layer, but significantly improves maintainability.
+
+#### Serialization Strategy
 
 **Chose:** JSON API Serializer
 
@@ -145,7 +228,7 @@ A hierarchical catalogue API with 3-4 levels: **Catalog → Section (self-refere
 
 **Trade-off:** Slightly more setup, but significant performance and maintainability benefits.
 
-### Query Optimization
+#### Query Optimization
 
 **Chose:** Extensive query optimizations including eager loading, select optimization, and strategic indexing
 
@@ -163,49 +246,27 @@ A hierarchical catalogue API with 3-4 levels: **Catalog → Section (self-refere
 - Strategic database indexes
 - PostgreSQL-specific optimizations
 
-### Database Choice
+### Performance & Caching
 
-**Chose:** PostgreSQL
+#### Caching Strategy
 
-**Why:**
+**Chose:** Redis with automatic cache busting using version-based keys (`catalog:{id}:{updated_at}`)
 
-- Better efficiency and performance
-- Future-proofing with advanced features (JSONB, full-text search, etc.)
-- Rich set of database methods and optimizations
-- Industry standard for production Rails applications
-- Better concurrency handling
+**Why:** Read-heavy APIs (1000:1 read-to-write ratio) benefit significantly. Version-based keys provide automatic invalidation. Redis is production-ready and future-compatible with Sidekiq for background jobs.
 
-**Trade-off:** Slightly more complex than SQLite, but essential for production scalability.
+**Implementation:** Redis cache store with automatic cache busting. When any related entity updates, timestamp changes and cache key becomes invalid automatically.
 
-### Hosting & Infrastructure
+**Key insight:** Automatic cache invalidation via version-based keys eliminates manual cache management overhead.
 
-**Chose:** Fly.io with Singapore (SIN) region
+### Operational
 
-**Why:**
+#### Forward Compatibility
 
-- Singapore server location improves loading speed for Singapore customers
-- Analyzed different service providers and found Fly.io offers best regional performance
-- Docker-based deployment for consistency
-- Managed PostgreSQL and Redis available
-- Cost-effective scaling
+**Answer:** **Yes, 100% forward-compatible**
 
-**Trade-off:** Less established than Heroku, but better regional performance and modern infrastructure.
+**Why:** Standard Rails associations, complete schema, write-compatible JSON structure. Can add create/update, authentication, soft deletes, positioning gem without breaking changes.
 
-### Rails Application Mode
-
-**Chose:** Rails API-only mode (scaffolding)
-
-**Why:**
-
-- Use case is API server only, no views or frontend rendering needed
-- Lighter application footprint (removes ActionView, ActionCable view helpers, etc.)
-- Faster boot times and reduced memory usage
-- Clearer intent: this is a JSON API, not a web application
-- Still includes ActionCable for WebSocket support if needed
-
-**Trade-off:** Cannot serve HTML views, but this aligns perfectly with the API-only use case.
-
-### Error Logging (Future)
+#### Error Logging (Future)
 
 **Planned:** Integration with Sentry or Airbrake for production error tracking
 
