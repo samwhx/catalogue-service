@@ -59,7 +59,7 @@ Returns single catalog with full nested hierarchy (sections → items → option
 
 - Hierarchical structure: Catalog → Section (self-referential) → Item → Option
 - Self-referential sections for flexible nesting
-- Caching with version-based keys for performance
+- Redis caching with automatic cache busting for performance
 - Eager loading to prevent N+1 queries
 - Read-only API (GET endpoints only)
 

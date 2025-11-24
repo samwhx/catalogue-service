@@ -26,7 +26,7 @@ A REST API for serving hierarchical catalogue data (e.g., restaurant menus) with
 └─────────────────┬─────────────────────────────┘
          ┌────────┴────────┐
     ┌────▼────┐    ┌──────▼──────┐
-    │PostgreSQL│    │Cache (Memory)│
+    │PostgreSQL│    │   Redis     │
     └─────────┘    └──────────────┘
 ```
 
@@ -83,7 +83,7 @@ A REST API for serving hierarchical catalogue data (e.g., restaurant menus) with
 - Version-Based Invalidation (automatic)
 - TTL Safety Net (24 hours)
 
-**Current:** Rails memory store (upgradeable to Redis)
+**Current:** Redis cache store
 
 ### 5. Controller Layer
 
@@ -149,7 +149,7 @@ Store in cache → Return response
 
 - Horizontal scaling (multiple app servers, shared Redis cache, read replicas)
 - Vertical scaling (connection pooling handles concurrency)
-- Caching strategy (Rails memory store → Redis upgrade path)
+- Caching strategy (Redis cache store)
 
 For detailed scalability metrics and performance analysis, see [`COMPLEXITY_ANALYSIS.md`](COMPLEXITY_ANALYSIS.md).
 
@@ -160,7 +160,7 @@ For detailed scalability metrics and performance analysis, see [`COMPLEXITY_ANAL
 - **Framework:** Ruby on Rails (API mode)
 - **Database:** PostgreSQL
 - **ORM:** ActiveRecord
-- **Cache:** Rails memory store (upgradeable to Redis)
+- **Cache:** Redis
 - **Serialization:** Fast JSON API (jsonapi-serializer)
 - **Testing:** RSpec, FactoryBot, Shoulda Matchers
 - **Server:** Puma (multi-threaded)
@@ -210,7 +210,7 @@ For detailed forward compatibility analysis, see [`DESIGN_DECISIONS.md`](DESIGN_
 3. **Version-Based Cache Keys:** Automatic invalidation without manual management
 4. **Fast JSON API:** High performance serialization with declarative syntax
 5. **Eager Loading:** Prevents N+1 queries (4-5 queries vs 161+)
-6. **Rails Memory Store:** Simple for demo, easy upgrade to Redis
+6. **Redis Cache:** Production-ready, future-compatible with Sidekiq
 7. **Self-Referential Sections:** Flexible hierarchy without fixed-depth models
 
 ---

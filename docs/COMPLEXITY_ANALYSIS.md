@@ -90,7 +90,7 @@ For detailed tree building implementation, see [`ARCHITECTURE.md`](ARCHITECTURE.
 
 **What gets cached:** Final JSON response (serialized), errors never cached, cache hits <1ms
 
-**Implementation:** Rails memory store (upgradeable to Redis)
+**Implementation:** Redis cache store
 
 For detailed caching architecture and patterns, see [`ARCHITECTURE.md`](ARCHITECTURE.md) and [`DESIGN_DECISIONS.md`](DESIGN_DECISIONS.md).
 
