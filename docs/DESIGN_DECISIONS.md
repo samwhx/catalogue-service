@@ -20,36 +20,38 @@ A hierarchical catalogue API with 3-4 levels: **Catalog → Section (self-refere
 - Complex catalog building logic in dedicated CatalogBuilder service
 - Extensive query optimizations (eager loading, strategic indexing)
 - Fly.io hosting with Singapore region for improved performance
+- Rails API-only mode (no views) since use case is API server only
 - Basic error handling (production patterns documented, Sentry/Airbrake integration planned)
 
 ---
 
 ## Quick Reference: All Decisions
 
-| Decision           | What We Chose           | What We Considered         | Why                                                   |
-| ------------------ | ----------------------- | -------------------------- | ----------------------------------------------------- |
-| Hierarchy          | 3-4 levels              | Full Atlas complexity      | Simpler, meets requirements                           |
-| Self-Referential   | Sections only           | Sections + Items           | Demonstrates concept without over-complication        |
-| Depth Limit        | Environment variable    | Hard-coded / DB constraint | Flexible, configurable per environment                |
-| Active/Delete      | Boolean flag            | Soft delete timestamp      | Simpler, sufficient for read-only API                 |
-| Price              | DECIMAL                 | Integer cents / Float      | Exact precision, supports any decimal places          |
-| Identifiers        | Identifier only         | ID only                    | Better URLs, more flexible, decreases likelihood of predicting URLs |
-| Options            | Simple one-level        | Modifier groups            | Sufficient, extensible                                |
+| Decision           | What We Chose           | What We Considered         | Why                                                                      |
+| ------------------ | ----------------------- | -------------------------- | ------------------------------------------------------------------------ |
+| Hierarchy          | 3-4 levels              | Full Atlas complexity      | Simpler, meets requirements                                              |
+| Self-Referential   | Sections only           | Sections + Items           | Demonstrates concept without over-complication                           |
+| Depth Limit        | Environment variable    | Hard-coded / DB constraint | Flexible, configurable per environment                                   |
+| Active/Delete      | Boolean flag            | Soft delete timestamp      | Simpler, sufficient for read-only API                                    |
+| Price              | DECIMAL                 | Integer cents / Float      | Exact precision, supports any decimal places                             |
+| Identifiers        | Identifier only         | ID only                    | Better URLs, more flexible, decreases likelihood of predicting URLs      |
+| Options            | Simple one-level        | Modifier groups            | Sufficient, extensible                                                   |
 | Caching            | Redis with auto-busting | No cache / Always cache    | Demonstrates capability, read-heavy APIs benefit, automatic invalidation |
-| Serialization      | JSON API Serializer     | Jbuilder / AMS             | Faster performance, easier to read syntax            |
-| Controller Design  | Thin controllers        | Fat controllers             | Better separation of concerns, testability           |
-| Service Layer      | CatalogBuilder service  | Inline logic               | Complex logic isolated, reusable, testable           |
-| Database           | PostgreSQL              | SQLite / MySQL             | Better efficiency, future-proofing, advanced features |
-| Cache Store        | Redis                   | Memory store / SolidCache  | Production-ready, future compatible with Sidekiq     |
-| Hosting            | Fly.io (SG region)      | Heroku / AWS               | SG server improves loading speed for SG customers    |
-| Loading            | Single call             | Chunked loading            | Menus small enough, better UX                         |
-| Create/Update      | Skip                    | Full CRUD                  | Assignment focuses on retrieval                       |
-| Delete             | Skip, use active flag   | Hard/soft delete           | Active flag handles via filtering                     |
-| Display Order      | Simple integer          | Positioning gem            | Read-only API doesn't need reordering                 |
-| Authentication     | None (open API)         | JWT / API Keys / OAuth     | Assignment constraint, documented production approach |
-| Resilience         | Basic error handling    | Circuit breakers / Retries | Appropriate scope, documented production patterns     |
-| Offline Mode       | Frontend responsibility | Backend cache headers      | Standard pattern, backend supports via HTTP           |
-| Forward Compatible | Yes                     | Breaking changes           | Standard Rails patterns, complete schema              |
+| Serialization      | JSON API Serializer     | Jbuilder / AMS             | Faster performance, easier to read syntax                                |
+| Controller Design  | Thin controllers        | Fat controllers            | Better separation of concerns, testability                               |
+| Service Layer      | CatalogBuilder service  | Inline logic               | Complex logic isolated, reusable, testable                               |
+| Database           | PostgreSQL              | SQLite / MySQL             | Better efficiency, future-proofing, advanced features                    |
+| Cache Store        | Redis                   | Memory store / SolidCache  | Production-ready, future compatible with Sidekiq                         |
+| Hosting            | Fly.io (SG region)      | Heroku / AWS               | SG server improves loading speed for SG customers                        |
+| Rails Mode         | API-only                | Full Rails with views      | Use case is API server only, no views needed                             |
+| Loading            | Single call             | Chunked loading            | Menus small enough, better UX                                            |
+| Create/Update      | Skip                    | Full CRUD                  | Assignment focuses on retrieval                                          |
+| Delete             | Skip, use active flag   | Hard/soft delete           | Active flag handles via filtering                                        |
+| Display Order      | Simple integer          | Positioning gem            | Read-only API doesn't need reordering                                    |
+| Authentication     | None (open API)         | JWT / API Keys / OAuth     | Assignment constraint, documented production approach                    |
+| Resilience         | Basic error handling    | Circuit breakers / Retries | Appropriate scope, documented production patterns                        |
+| Offline Mode       | Frontend responsibility | Backend cache headers      | Standard pattern, backend supports via HTTP                              |
+| Forward Compatible | Yes                     | Breaking changes           | Standard Rails patterns, complete schema                                 |
 
 ---
 
@@ -117,13 +119,15 @@ A hierarchical catalogue API with 3-4 levels: **Catalog → Section (self-refere
 
 **Chose:** Thin controllers with logic offloaded to services, modules, and ApplicationController
 
-**Why:** 
+**Why:**
+
 - Controllers stay focused on HTTP concerns (request/response)
 - Complex business logic lives in dedicated service classes
 - Common methods extracted to ApplicationController for reusability
 - Better testability and maintainability
 
-**Implementation:** 
+**Implementation:**
+
 - `CatalogBuilder` service handles complex catalog hierarchy building
 - ApplicationController provides shared functionality
 - Controllers delegate to services and return serialized responses
@@ -132,7 +136,8 @@ A hierarchical catalogue API with 3-4 levels: **Catalog → Section (self-refere
 
 **Chose:** JSON API Serializer
 
-**Why:** 
+**Why:**
+
 - Faster performance compared to Jbuilder or Active Model Serializers
 - Cleaner, more readable syntax
 - Better separation of concerns
@@ -144,13 +149,15 @@ A hierarchical catalogue API with 3-4 levels: **Catalog → Section (self-refere
 
 **Chose:** Extensive query optimizations including eager loading, select optimization, and strategic indexing
 
-**Why:** 
+**Why:**
+
 - Prevents N+1 queries (reduced from 161+ queries to 4-5)
 - Dramatically improves response times
 - Essential for production performance
 - Database-level optimizations leverage PostgreSQL's advanced features
 
-**Implementation:** 
+**Implementation:**
+
 - Eager loading with `includes` and `preload`
 - Selective field loading
 - Strategic database indexes
@@ -160,7 +167,8 @@ A hierarchical catalogue API with 3-4 levels: **Catalog → Section (self-refere
 
 **Chose:** PostgreSQL
 
-**Why:** 
+**Why:**
+
 - Better efficiency and performance
 - Future-proofing with advanced features (JSONB, full-text search, etc.)
 - Rich set of database methods and optimizations
@@ -173,7 +181,8 @@ A hierarchical catalogue API with 3-4 levels: **Catalog → Section (self-refere
 
 **Chose:** Fly.io with Singapore (SIN) region
 
-**Why:** 
+**Why:**
+
 - Singapore server location improves loading speed for Singapore customers
 - Analyzed different service providers and found Fly.io offers best regional performance
 - Docker-based deployment for consistency
@@ -182,11 +191,26 @@ A hierarchical catalogue API with 3-4 levels: **Catalog → Section (self-refere
 
 **Trade-off:** Less established than Heroku, but better regional performance and modern infrastructure.
 
+### Rails Application Mode
+
+**Chose:** Rails API-only mode (scaffolding)
+
+**Why:**
+
+- Use case is API server only, no views or frontend rendering needed
+- Lighter application footprint (removes ActionView, ActionCable view helpers, etc.)
+- Faster boot times and reduced memory usage
+- Clearer intent: this is a JSON API, not a web application
+- Still includes ActionCable for WebSocket support if needed
+
+**Trade-off:** Cannot serve HTML views, but this aligns perfectly with the API-only use case.
+
 ### Error Logging (Future)
 
 **Planned:** Integration with Sentry or Airbrake for production error tracking
 
-**Why:** 
+**Why:**
+
 - Essential for production monitoring
 - Real-time error alerts
 - Performance monitoring
