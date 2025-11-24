@@ -61,6 +61,7 @@ A hierarchical catalogue API with 3-4 levels: **Catalog → Section (self-refere
 | Create/Update      | Skip                       | Full CRUD                  | Assignment focuses on retrieval                                     |
 | Delete             | Skip, use active flag      | Hard/soft delete           | Active flag handles via filtering                                   |
 | Authentication     | None (open API)            | JWT / API Keys / OAuth     | Assignment constraint, documented production approach               |
+| Invalid Routes     | JSON 404 response          | Default HTML 404           | API consistency, proper error format                                |
 | Controller Design  | Thin controllers           | Fat controllers            | Better separation of concerns, testability                          |
 | Service Layer      | CatalogTreeBuilder service | Inline logic               | Complex logic isolated, reusable, testable                          |
 | Serialization      | JSON API Serializer        | Jbuilder / AMS             | Faster performance, easier to read syntax                           |
@@ -97,6 +98,8 @@ A hierarchical catalogue API with 3-4 levels: **Catalog → Section (self-refere
 ### Implementation
 
 **Thin controllers + service layer:** Controllers focus on HTTP, business logic in services (`CatalogTreeBuilder`), common methods in ApplicationController. Better testability and maintainability.
+
+**Invalid route handling:** `exceptions_app` configuration routes invalid URLs to `ExceptionsController` which returns JSON 404 response. Maintains API server consistency (no HTML 404 pages).
 
 **JSON API Serializer:** Faster than Jbuilder/AMS, cleaner syntax, industry-standard format. Trade-off: Slightly more setup.
 

@@ -26,7 +26,6 @@ class ApplicationController < ActionController::API
   end
 
   def render_not_found
-    # TODO: Add error logging to Sentry/Airbrake
     render json: { error: "Resource not found", status: 404 }, status: :not_found
   end
 end

@@ -28,5 +28,10 @@ module CatalogueService
     # Middleware like session, flash, cookies can be added back manually.
     # Skip views, helpers and assets when generating a new resource.
     config.api_only = true
+
+    # Handle routing errors with JSON response
+    config.exceptions_app = ->(env) do
+      ExceptionsController.action(:not_found).call(env)
+    end
   end
 end
