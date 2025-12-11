@@ -17,7 +17,7 @@ gem "tzinfo-data", platforms: %i[ windows jruby ]
 
 # Use Redis for caching, queuing, and Action Cable
 gem "redis", "~> 5.0"
-gem "sidekiq", "~> 7.0"
+gem "sidekiq", "~> 8.1"
 
 # Reduces boot times through caching; required in config/boot.rb
 gem "bootsnap", require: false
